@@ -1,5 +1,5 @@
 from database import engine
-from models import Base
+from ai.SentimentModel import Base
 
 if __name__ == "__main__":
     print("Creating database tables...")
