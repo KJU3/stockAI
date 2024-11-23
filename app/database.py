@@ -1,8 +1,18 @@
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
+import os
 
-# DB_URL = 'mysql+pymysql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}'
-DB_URL = 'mysql+pymysql://root:1234@localhost:3306/aiTest'
+load_dotenv()
+
+DB_USERNAME = os.environ.get("DB_USERNAME")
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
+DB_HOST = os.environ.get("DB_HOST")
+DB_PORT = os.environ.get("DB_PORT")
+DB_NAME = os.environ.get("DB_NAME")
+
+
+DB_URL = f'mysql+pymysql://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
 # Engine 및 Session 설정
 engine = create_engine(DB_URL, pool_recycle=500)
@@ -10,9 +20,6 @@ SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bi
 
 # 세션 제공 함수
 def get_db():
-    """
-    FastAPI 의존성 주입을 위한 DB 세션 함수
-    """
     db = SessionLocal()
     try:
         yield db
