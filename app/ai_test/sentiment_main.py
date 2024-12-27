@@ -11,13 +11,6 @@ import math
 import pickle
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from database import get_db
-
-from ai.SentimentModel import SentimentModel
-import logging
-
 urllib.request.urlretrieve("https://raw.githubusercontent.com/ukairia777/finance_sentiment_corpus/main/finance_data.csv", filename="finance_data.csv")
 df_data = pd.read_csv('finance_data.csv', keep_default_na=False)
 
@@ -61,7 +54,6 @@ tfidf.fit(x_train)
 x_train_okt = tfidf.transform(x_train)
 x_test_okt = tfidf.transform(x_test)
 
-
 # 데이터 분류기 (확률적 경사 하강법)
 sgd = SGDClassifier(loss='log_loss', random_state=1)
 param_dist = {'alpha' : loguniform(0.0001, 100.0)}
@@ -78,44 +70,25 @@ rsv_okt.fit(x_train_okt, y_train)
 
 print(rsv_okt.score(x_test_okt, y_test))
 
+cur_dir = os.path.dirname(__file__)
+
+# 디렉토리 생성
+dest = os.path.join(cur_dir, 'pkl_objects')
+if not os.path.exists(dest):
+    os.makedirs(dest)
+
 
 # 모델 직렬화
-bdata = pickle.dumps(rsv_okt, protocol=5)
-
-logger = logging.getLogger("Sentiment_Logger")
-
-db_session = get_db()
-
-def insertSentiment(data: bytes, db: Session):
-    try:
-        sentiment_model = SentimentModel(content="testDescription", model=data)
-        db.add(sentiment_model)
-        db.commit()
-        db.refresh(sentiment_model)
-        return sentiment_model
-    except Exception as e:
-        logger.error(str(e))
-        return None
-
-
-def selectSentiment(db: Session):
-    try:
-        model = db.query(SentimentModel).first()
-        return model
-    except Exception as e:
-        logger.error(e)
-        return None
-
-db_session_instance = next(db_session)
-
-insertSentiment(bdata, db_session_instance)
-
-model = selectSentiment(db_session_instance)
-
-reverse = pickle.loads(model.model)
+pickle.dump(rsv_okt,
+            open(os.path.join(dest, 'classifier.pkl'), 'wb'),
+            protocol=4)
 
 # 모델 역직렬화
+clf = pickle.load(open(os.path.join(cur_dir,
+                                    'pkl_objects',
+                                    'classifier.pkl'), 'rb'))
 
+print(f'복원한 클래스!!!!! 점수 : {clf.score(x_test_okt, y_test)}')
 
 neutral1 = "Gran에 따르면, 그 회사는 회사가 성장하고 있는 곳이지만, 모든 생산을 러시아로 옮길 계획이 없다고 한다."
 negative1 = "국제 전자산업 회사인 엘코텍은 탈린 공장에서 수십 명의 직원을 해고했으며, 이전의 해고와는 달리 회사는 사무직 직원 수를 줄였다고 일간 포스티메스가 보도했다."
@@ -125,7 +98,7 @@ new_data = [positive1]
 
 prediction_data = tfidf.transform(new_data)
 
-prediction = reverse.predict(prediction_data)
+prediction = rsv_okt.predict(prediction_data)
 label = {0: 'neutral', 1: 'positive', 2: 'negative'}
 
 print(prediction)
